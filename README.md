@@ -84,3 +84,101 @@ console.log(rect) // Rectangle {width: 5, height: 10, getArea: ƒ}
 想要解决这个问题，就要找到问题的根源，其根源就是实例化过程中的`this`的不一致性，所以需要`this instanceof Polygon`的判断为真，即`this`值即是`Rectangle`的实例也是`Polygon`的实例，所以使用原型链继承`Polygon`的实例，添加如下代码：
 `Rectangle.prototype = new Polygon()`
 添加这段代码之后，一个`Rectangle`的实例也是`Polygon`的实例,所以不会执行`new Polygon(sides)`，也就不会有`this`不同产生的继承问题.
+
+## 惰性载入函数
+在js的代码中有一些功能检测代码只需要执行一次，重复的检测测试是没有必要的，这个时候就需要用到惰性载入。
+惰性载入表示函数执行的分支仅会发生一次，有两种实现载入的方式，如下：
+- 在函数被调用时再处理函数。在第一个调用的过程中，该函数会被覆盖为另一个按合适方式执行的函数，这样任何对原函数的调用都不用再经过执行的分支了。
+- 在函数声明时就指定适当的函数。在函数的声明时就使用立即执行表达式立即执行该函数并且将按合适方式执行的函数返回，后面再调用该函数时就是一个合适执行的函数。
+比如，由于浏览器之间行为的差异，多数的js代码包含了大量的`if`语句，将执行引导到正确的代码中，代码如下：
+```
+function createXHR () {
+    if (typeof XMLHttpRequest !== 'undefined') {
+        return new XMLHttpRequest()
+    }else if (typeof ActiveXObject !== 'undefined'){
+        if (typeof agruments.callee.activeXString !== "string") {
+            var versions = ["MSXML2.XMLHttp.6.0", "MSXML2.XMLHttp.3.0", "MSXML2.XMLHttp"], i, len;
+            for (i = 0, len = versions.length; i < len; i++) {
+                try {
+                    new ActiveXObject(versions[i]);
+                    agruments.callee.activeXString = versions[i];
+                    break;
+                } catch (ex) {
+                    //跳过                     
+                }
+            }
+        }
+        return new ActiveXObject(agruments.callee.activeXString)
+    } else {
+        throw new Error("No XHR object avaliable")
+    }
+}
+```
+在上面的代码中每次调用`createXHR()`的时候，它都要对浏览器支持的能力仔细检测。首先检测内置的`XHR`,然后测试有没有基于`ActiveX`的`XHR`,最后如果都没有发现的话就抛出一个错误。每次调用该函数都是这样，即使每次调用时分支的结果都不变，如果浏览器内置`XHR`，那么它就一直支持了，那么这种测试就没有必要了。所以就可以使用惰性载入函数减少这种不必要的开支
+
+### 在函数被调用时再处理函数
+这种的惰性载入函数会被覆盖为另一个按合适方式执行的函数，这样任何对原函数的调用都不再经过执行的分支了。代码如下：
+```
+function createXHR () {
+    if (typeof XMLHttpRequest !== 'undefined') {
+        createXHR = function () {
+            return new XMLHttpRequest()
+        }
+    }else if (typeof ActiveXObject !== 'undefined'){
+        createXHR = function () {
+            if (typeof agruments.callee.activeXString !== "string") {
+                var versions = ["MSXML2.XMLHttp.6.0", "MSXML2.XMLHttp.3.0", "MSXML2.XMLHttp"], i, len;
+                for (i = 0, len = versions.length; i < len; i++) {
+                    try {
+                        new ActiveXObject(versions[i]);
+                        agruments.callee.activeXString = versions[i];
+                        break;
+                    } catch (ex) {
+                        //跳过                     
+                    }
+                }
+           }
+           return new ActiveXObject(agruments.callee.activeXString)
+        }
+    } else {
+       createXHR = function () {
+            throw new Error("No XHR object avaliable")
+       }
+    }
+    return createXHR()
+}
+```
+在这个惰性载入的`createXHR()`中，`if`语句的每一个分支都会为`createXHR`变量赋值，有效覆盖了原有的函数。最后一步就是调用新赋值的函数，下一次调用`createXHR()`的时候，就会直接调用被赋值的函数，这样就不会再次执行`if`语句了
+### 在函数声明时就指定适当的函数
+```
+var createXHR = (function () {
+    if (typeof XMLHttpRequest !== 'undefined') {
+        return function () {
+            return new XMLHttpRequest()
+        }
+    }else if (typeof ActiveXObject !== 'undefined'){
+        return function () {
+            if (typeof agruments.callee.activeXString !== "string") {
+                var versions = ["MSXML2.XMLHttp.6.0", "MSXML2.XMLHttp.3.0", "MSXML2.XMLHttp"], i, len;
+                for (i = 0, len = versions.length; i < len; i++) {
+                    try {
+                        new ActiveXObject(versions[i]);
+                        agruments.callee.activeXString = versions[i];
+                        break;
+                    } catch (ex) {
+                        //跳过                     
+                    }
+                }
+            }
+            return new ActiveXObject(agruments.callee.activeXString)
+        }
+    } else {
+        return function () {
+            throw new Error("No XHR object avaliable")
+        }
+    }
+})();
+```
+这种方式是在声明函数时就指定了适当的函数。这样，第一次调用函数时就不会损失性能了，而是在代码首次加载时会损失性能。
+
+惰性载入函数的优点是只在执行分支代码时牺牲一点性能，至于使用什么方式更加合适，需要根据具体的情况而定。
