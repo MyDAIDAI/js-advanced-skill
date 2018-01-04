@@ -182,3 +182,35 @@ var createXHR = (function () {
 这种方式是在声明函数时就指定了适当的函数。这样，第一次调用函数时就不会损失性能了，而是在代码首次加载时会损失性能。
 
 惰性载入函数的优点是只在执行分支代码时牺牲一点性能，至于使用什么方式更加合适，需要根据具体的情况而定。
+
+## 函数绑定
+函数绑定要创建一个函数，可以在特定的`this`环境中以指定参数调用另一个函数。该技巧常常和回调函数与事件处理程序一起使用，以便在将函数作为变量传递的同时保留代码执行环境。
+```
+var handler = {
+    message: 'Event handled',
+    handleClick: function (event) {
+        alert(this.message)
+    }
+}
+var btn = document.getElementById("my-btn")
+EventUtil.addHandler(btn, 'click', handler.handleClick)
+```
+在上面的例子中，创建了一个叫做`handler`的对象。`handler.handleClick()`方法被分配为一个`DOM`按钮事件的处理程序。当按下这个按钮时，就会调用该函数，显示一个警告框，警告框应该显示`Event handled`,但是显示的确是`undefined`，这个问题在于没有保存`handler.handleClick()`的环境，所以在执行的时候`this`对象最后是指向了`DOM`按钮而非`handler`。要修复上面的问题，可以创建一个闭包，如下：
+```
+EventUtil.addHandler(btn, 'click', function(event) {
+    handler.handleClick(event)
+})
+```
+这是特定于这段代码的解决方式，一个通用的方式是使用函数绑定，代码如下：
+```
+function bind(fn, context) {
+    return function () {
+        return fn.apply(context, arguments)
+    }
+}
+```
+除此之外，`ES6`为所有函数定义了一个原生的`bind()`方法，可以直接在函数上调用这个方法，如下：
+`fun.bind(obj)`，`handler.handleClick.bind(handler)`.
+
+它们主要应用于事件处理程序以及`setTimeout()`和`setInterval()`，但是被绑定的函数与普通函数相比有更多的开销，所以最好只在需要的时候使用.
+
