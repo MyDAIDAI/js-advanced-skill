@@ -214,3 +214,53 @@ function bind(fn, context) {
 
 它们主要应用于事件处理程序以及`setTimeout()`和`setInterval()`，但是被绑定的函数与普通函数相比有更多的开销，所以最好只在需要的时候使用.
 
+## 函数柯里化
+函数柯里化用于创建已经设置好了一个或多个参数的函数。函数柯里化的基本方法与函数绑定一致：使用一个闭包返回一个函数。两者之间的区别在于，当函数被调用的时候，返回的函数还需要设置一些传入的参数。比如：
+```
+function add(num1, num2) {
+    return num1 + num2
+}
+function curriedAdd(num2) {
+    return add(5, num2)
+}
+alert(curriedAdd(2))
+```
+后者本质上是在任何情况下为第一个参数为5的`add`函数版本，尽管从技术上来说`curriedAdd`并非柯里化的函数，但是它很好的展现了其概念。
+柯里化函数通常由以下步骤动态创建：调用另一个函数并为它传入要柯里化的函数以及参数
+```
+function curry(fn) {
+    var args = Array.prototype.slice.call(arguments, 1)
+    return function () {
+        var innerArgs = Array.prototype.slice.call(arguments)
+        var finalArgs = args.concat(innerArgs)
+        return fn.apply(null, finalArgs)
+    }
+}`
+```
+上述柯里化函数将传入的参数做了处理，将柯里化参数与后续参数进行连接，使用方式如下：
+```
+function add(num1, num2) {
+    return num1 + num2
+}
+function curry(fn) {
+    var args = Array.prototype.slice.call(arguments, 1)
+    return function () {
+        var innerArgs = Array.prototype.slice.call(arguments)
+        var finalArgs = args.concat(innerArgs)
+        return fn.apply(null, finalArgs)
+    }
+}
+var curriedAdd = curry(add, 5)
+alert(curriedAdd(2))
+```
+函数柯里化还可以将函数绑定的一部分包含在其中，构造出更为复杂的`bind()`函数，如下：
+```
+function bind(fn, context) {
+    var args = Array.prototype.slice.call(arguments, 2);
+    return function() {
+        var innerArgs = Array.prototype.slice.call(arguments)
+        var finalArgs = args.concat(innerArgs)
+        return fn.apply(context, finalArgs)
+    }
+}
+```
