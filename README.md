@@ -264,3 +264,35 @@ function bind(fn, context) {
     }
 }
 ```
+
+## 函数节流
+浏览器中的某些计算和处理要比其他的计算昂贵许多。比如：`DOM`操作比起非`DOM`交互需要更多的内存以及时间，所以需要进行函数节流，限制函数的调用次数。函数节流背后的基本思想是指，某些代码不可以在没有间断的情况下连续重复执行。第一次调用函数，创建一个定时器，在指定的时间间隔之后运行代码。当第二次调用该函数时，它会清除前一个的定时器并且设置一个另一个定时器。如果前一个已经执行了，这个操作就没有意义。然而，如果前一个定时器尚未执行，其实就是将其替换为一个新的定时器。目的是只有在执行函数的请求停止了一段时间之后才执行。以下是该模式的基本形式：
+```
+var processor = {
+    timeoutId: null,
+//     实际处理函数
+    performProcessing: function() {
+//         实际处理代码
+    },
+    process: function() {
+        clearTimeout(this.timeoutId)
+        var that = this
+        this.timeoutId = setTimeout(function(){
+              that.performProcessing()
+        }, 100)
+    }
+}
+processor.process()
+```
+时间间隔设为100ms，这表示最后一次调用`process()`之后至少100ms后才会调用`performProcessing()`，所以如果100ms之内调用了`process`共20次，但是`performProcessing`仍只会执行一次。
+
+这个模式可以使用`throttles()`函数来简化，这个函数可以自动进行定时器的设置和清楚，代码如下：
+```
+function throttle(method, context) {
+    clearTimeout(method.tId)
+    method.tId = setTimeout(function() {
+        method.call(context)
+    }, 100)
+}
+```
+节流在`resize`事件中最常用，如果你基于该事件来改变页面布局的话，最好控制处理的频率，以确保浏览器不会再极短时间内进行过多的计算，导致浏览器卡顿。只要代码是周期性执行的，都应该使用节流，但是你不能控制请求执行的速率。
